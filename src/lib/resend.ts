@@ -1,0 +1,19 @@
+import { Resend } from "resend";
+
+let resend: Resend | null = null;
+
+export function getResend() {
+  if (!process.env.RESEND_API_KEY) {
+    return null;
+  }
+
+  if (!resend) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+
+  return resend;
+}
+
+export function getEmailFrom() {
+  return process.env.CASHBACK_EMAIL_FROM ?? "Cashback Super <onboarding@resend.dev>";
+}

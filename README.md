@@ -1,36 +1,34 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Cashback Super
 
-## Getting Started
+Micro-SaaS de cashback para lojistas, feito com Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui, Supabase e Resend.
 
-First, run the development server:
+## Rotas
+
+- `/dashboard`: painel autenticado do lojista para configurar loja, cadastrar clientes, ativar cartao PVC, registrar compras e resgatar saldo.
+- `/consulta`: pagina publica para o cliente consultar saldo por CPF ou codigo do cartao.
+- `/login`: login com Supabase Auth.
+
+## Setup
+
+1. Copie `.env.example` para `.env.local`.
+2. Preencha as chaves do Supabase e Resend.
+3. Rode o SQL de `supabase/schema.sql` no SQL editor do Supabase.
+4. Inicie o projeto:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Entregaveis principais
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Schema Supabase com RLS: `supabase/schema.sql`
+- Server Actions: `src/app/actions.ts`
+- Painel do lojista: `src/app/dashboard/page.tsx` e `src/components/dashboard-client.tsx`
+- Consulta publica: `src/app/consulta/page.tsx` e `src/components/balance-search.tsx`
+- Gerador de URL de QR Code: `src/lib/qr.ts`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Observacoes de seguranca
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- A consulta publica usa `SUPABASE_SERVICE_ROLE_KEY` somente no servidor. Nunca exponha essa chave com prefixo `NEXT_PUBLIC_`.
+- CPF e telefone sao dados pessoais. Para producao, revise politica de retencao, consentimento e mascaramento de dados conforme LGPD.
+- Dados de nome por CPF nao foram buscados automaticamente porque APIs gratuitas geralmente nao retornam dados de pessoa fisica por restricoes de privacidade.
