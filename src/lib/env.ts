@@ -2,6 +2,10 @@ export function getPublicAppUrl() {
   return process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
 }
 
+export function hasMercadoPagoEnv() {
+  return Boolean(process.env.MERCADO_PAGO_ACCESS_TOKEN);
+}
+
 export function hasSupabaseEnv() {
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -31,4 +35,16 @@ export function getSupabaseAdminConfig() {
   }
 
   return { url, serviceRoleKey };
+}
+
+export function getMercadoPagoConfig() {
+  const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+  const publicKey = process.env.NEXT_PUBLIC_MP_PUBLIC_KEY;
+  const webhookSecret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
+
+  if (!accessToken) {
+    throw new Error("A assinatura ainda nao esta liberada para esta loja.");
+  }
+
+  return { accessToken, publicKey, webhookSecret };
 }

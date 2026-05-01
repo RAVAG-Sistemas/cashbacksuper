@@ -147,6 +147,210 @@ export type Database = {
         };
         Relationships: [];
       };
+      plans: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          description: string | null;
+          price_cents: number;
+          monthly_transaction_limit: number | null;
+          operator_limit: number | null;
+          mercado_pago_plan_id: string | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          slug: string;
+          description?: string | null;
+          price_cents: number;
+          monthly_transaction_limit?: number | null;
+          operator_limit?: number | null;
+          mercado_pago_plan_id?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          slug?: string;
+          description?: string | null;
+          price_cents?: number;
+          monthly_transaction_limit?: number | null;
+          operator_limit?: number | null;
+          mercado_pago_plan_id?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      subscriptions: {
+        Row: {
+          id: string;
+          store_id: string;
+          plan_id: string | null;
+          status: "trialing" | "active" | "past_due" | "paused" | "canceled";
+          mercado_pago_preapproval_id: string | null;
+          current_period_start: string | null;
+          current_period_end: string | null;
+          trial_ends_at: string | null;
+          canceled_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          store_id: string;
+          plan_id?: string | null;
+          status?: "trialing" | "active" | "past_due" | "paused" | "canceled";
+          mercado_pago_preapproval_id?: string | null;
+          current_period_start?: string | null;
+          current_period_end?: string | null;
+          trial_ends_at?: string | null;
+          canceled_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          store_id?: string;
+          plan_id?: string | null;
+          status?: "trialing" | "active" | "past_due" | "paused" | "canceled";
+          mercado_pago_preapproval_id?: string | null;
+          current_period_start?: string | null;
+          current_period_end?: string | null;
+          trial_ends_at?: string | null;
+          canceled_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      invoices: {
+        Row: {
+          id: string;
+          store_id: string;
+          subscription_id: string | null;
+          status: "pending" | "paid" | "failed" | "void";
+          amount_cents: number;
+          currency: string;
+          mercado_pago_payment_id: string | null;
+          hosted_invoice_url: string | null;
+          due_at: string | null;
+          paid_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          store_id: string;
+          subscription_id?: string | null;
+          status?: "pending" | "paid" | "failed" | "void";
+          amount_cents: number;
+          currency?: string;
+          mercado_pago_payment_id?: string | null;
+          hosted_invoice_url?: string | null;
+          due_at?: string | null;
+          paid_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          store_id?: string;
+          subscription_id?: string | null;
+          status?: "pending" | "paid" | "failed" | "void";
+          amount_cents?: number;
+          currency?: string;
+          mercado_pago_payment_id?: string | null;
+          hosted_invoice_url?: string | null;
+          due_at?: string | null;
+          paid_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      webhook_events: {
+        Row: {
+          id: string;
+          provider: string;
+          external_event_id: string;
+          event_type: string | null;
+          payload: Json;
+          processed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          provider: string;
+          external_event_id: string;
+          event_type?: string | null;
+          payload: Json;
+          processed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          provider?: string;
+          external_event_id?: string;
+          event_type?: string | null;
+          payload?: Json;
+          processed_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      email_logs: {
+        Row: {
+          id: string;
+          store_id: string | null;
+          customer_id: string | null;
+          template: string;
+          recipient: string;
+          subject: string;
+          status: "pending" | "sent" | "failed";
+          provider_message_id: string | null;
+          error_message: string | null;
+          payload: Json;
+          scheduled_at: string;
+          sent_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          store_id?: string | null;
+          customer_id?: string | null;
+          template: string;
+          recipient: string;
+          subject: string;
+          status?: "pending" | "sent" | "failed";
+          provider_message_id?: string | null;
+          error_message?: string | null;
+          payload?: Json;
+          scheduled_at?: string;
+          sent_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          store_id?: string | null;
+          customer_id?: string | null;
+          template?: string;
+          recipient?: string;
+          subject?: string;
+          status?: "pending" | "sent" | "failed";
+          provider_message_id?: string | null;
+          error_message?: string | null;
+          payload?: Json;
+          scheduled_at?: string;
+          sent_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -170,6 +374,9 @@ export type Database = {
     };
     Enums: {
       card_status: "active" | "inactive" | "lost";
+      email_status: "pending" | "sent" | "failed";
+      invoice_status: "pending" | "paid" | "failed" | "void";
+      subscription_status: "trialing" | "active" | "past_due" | "paused" | "canceled";
       transaction_type: "credit" | "debit";
     };
     CompositeTypes: Record<string, never>;

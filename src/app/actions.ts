@@ -5,7 +5,13 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { assertValidCpf, onlyDigits } from "@/lib/cpf";
-import { hasSupabaseEnv } from "@/lib/env";
+import { getBillingPlanBySlug } from "@/lib/billing-plans";
+import { renderCashbackEarnedEmail } from "@/lib/email/render";
+import { getPublicAppUrl, hasMercadoPagoEnv, hasSupabaseEnv } from "@/lib/env";
+import {
+  createMercadoPagoSubscription,
+  mapMercadoPagoSubscriptionStatus,
+} from "@/lib/mercado-pago";
 import { formatCurrency } from "@/lib/money";
 import { generateBalanceUrl, slugify } from "@/lib/qr";
 import { getEmailFrom, getResend } from "@/lib/resend";
@@ -38,8 +44,6 @@ export type LookupState = {
   message: string;
   results: BalanceResult[];
 };
-
-const idleMutation: MutationState = { status: "idle", message: "" };
 
 const authSchema = z.object({
   email: z.string().email("Digite um e-mail valido."),
@@ -106,6 +110,12 @@ function assertSupabaseConfigured() {
   }
 }
 
+function assertMercadoPagoConfigured() {
+  if (!hasMercadoPagoEnv()) {
+    throw new Error("A cobranca da assinatura ainda nao foi ativada para esta loja.");
+  }
+}
+
 async function getAuthenticatedContext() {
   assertSupabaseConfigured();
   const supabase = await createClient();
@@ -136,15 +146,7 @@ async function sendCashbackEmail(input: {
     from: getEmailFrom(),
     to: input.to,
     subject: `Voce ganhou ${formatCurrency(input.cashbackAmount)} de cashback`,
-    html: `
-      <div style="font-family:Arial,sans-serif;line-height:1.5;color:#222">
-        <h1 style="font-size:22px">Cashback liberado</h1>
-        <p>Ola ${input.customerName}, voce acabou de ganhar <strong>${formatCurrency(
-          input.cashbackAmount,
-        )}</strong> de cashback na ${input.storeName}.</p>
-        <p>Seu saldo total agora e <strong>${formatCurrency(input.totalBalance)}</strong>.</p>
-      </div>
-    `,
+    html: await renderCashbackEarnedEmail(input),
   });
 }
 
@@ -265,6 +267,129 @@ export async function updateStoreAction(
   } catch (error) {
     return mutationError(error);
   }
+}
+
+export async function createSubscriptionCheckoutAction(
+  _state: MutationState,
+  formData: FormData,
+): Promise<MutationState> {
+  let checkoutUrl: string | null = null;
+
+  try {
+    assertMercadoPagoConfigured();
+    const { supabase, userId } = await getAuthenticatedContext();
+    const planSlug = String(formData.get("planSlug") ?? "");
+    const plan = getBillingPlanBySlug(planSlug);
+
+    if (!plan) {
+      throw new Error("Plano invalido.");
+    }
+
+    const { data: userData } = await supabase.auth.getUser();
+    const payerEmail = userData.user?.email;
+
+    if (!payerEmail) {
+      throw new Error("Sua conta precisa ter um e-mail valido para assinar.");
+    }
+
+    const { data: stores } = await supabase
+      .from("stores")
+      .select("*")
+      .eq("owner_id", userId)
+      .order("created_at", { ascending: true })
+      .limit(1);
+
+    const store = stores?.[0];
+
+    if (!store) {
+      throw new Error("Crie sua loja antes de iniciar a assinatura.");
+    }
+
+    const admin = getSupabaseAdmin();
+    const { data: savedPlan, error: planError } = await admin
+      .from("plans")
+      .upsert(
+        {
+          slug: plan.slug,
+          name: plan.name,
+          description: plan.description,
+          price_cents: plan.priceCents,
+          monthly_transaction_limit: plan.monthlyTransactionLimit,
+          operator_limit: plan.operatorLimit,
+          is_active: true,
+        },
+        { onConflict: "slug" },
+      )
+      .select("*")
+      .single();
+
+    if (planError || !savedPlan) {
+      throw new Error(planError?.message ?? "Nao foi possivel preparar o plano da assinatura.");
+    }
+
+    const mpSubscription = await createMercadoPagoSubscription({
+      reason: `Cashback Super - ${plan.name}`,
+      externalReference: store.id,
+      payerEmail,
+      amount: plan.priceCents / 100,
+    });
+
+    const { data: currentSubscription } = await admin
+      .from("subscriptions")
+      .select("*")
+      .eq("store_id", store.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const mappedStatus = mapMercadoPagoSubscriptionStatus(mpSubscription.status);
+    const now = new Date().toISOString();
+
+    if (currentSubscription) {
+      const { error } = await admin
+        .from("subscriptions")
+        .update({
+          plan_id: savedPlan.id,
+          status: mappedStatus,
+          mercado_pago_preapproval_id: mpSubscription.id,
+          current_period_start: now,
+          trial_ends_at: mappedStatus === "trialing" ? now : null,
+          updated_at: now,
+        })
+        .eq("id", currentSubscription.id);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+    } else {
+      const { error } = await admin.from("subscriptions").insert({
+        store_id: store.id,
+        plan_id: savedPlan.id,
+        status: mappedStatus,
+        mercado_pago_preapproval_id: mpSubscription.id,
+        current_period_start: now,
+        trial_ends_at: mappedStatus === "trialing" ? now : null,
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+    }
+
+    revalidatePath("/dashboard/assinatura");
+
+    if (!mpSubscription.init_point) {
+      return {
+        status: "success",
+        message: "Assinatura criada. Falta apenas abrir o checkout do Mercado Pago.",
+      };
+    }
+    checkoutUrl = mpSubscription.init_point;
+  } catch (error) {
+    return mutationError(error);
+  }
+
+  redirect(checkoutUrl ?? `${getPublicAppUrl()}/dashboard/assinatura`);
 }
 
 export async function registerCustomerAction(
@@ -532,5 +657,3 @@ export async function lookupBalanceAction(
     } satisfies LookupState;
   }
 }
-
-export { idleMutation };

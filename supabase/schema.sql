@@ -5,6 +5,9 @@ create extension if not exists pgcrypto;
 
 create type public.card_status as enum ('active', 'inactive', 'lost');
 create type public.transaction_type as enum ('credit', 'debit');
+create type public.subscription_status as enum ('trialing', 'active', 'past_due', 'paused', 'canceled');
+create type public.invoice_status as enum ('pending', 'paid', 'failed', 'refunded', 'canceled');
+create type public.email_status as enum ('pending', 'sent', 'delivered', 'bounced', 'failed');
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -84,6 +87,81 @@ create index cards_code_idx on public.cards(code);
 create index transactions_store_customer_created_idx
   on public.transactions(store_id, customer_id, created_at desc);
 
+create table public.plans (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text not null unique,
+  description text,
+  price_cents integer not null,
+  monthly_transaction_limit integer,
+  operator_limit integer,
+  mercado_pago_plan_id text,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint plans_price_cents_non_negative check (price_cents >= 0)
+);
+
+create table public.subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  store_id uuid not null references public.stores(id) on delete cascade,
+  plan_id uuid references public.plans(id) on delete set null,
+  status public.subscription_status not null default 'trialing',
+  mercado_pago_preapproval_id text unique,
+  current_period_start timestamptz,
+  current_period_end timestamptz,
+  trial_ends_at timestamptz,
+  canceled_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.invoices (
+  id uuid primary key default gen_random_uuid(),
+  store_id uuid not null references public.stores(id) on delete cascade,
+  subscription_id uuid references public.subscriptions(id) on delete set null,
+  status public.invoice_status not null default 'pending',
+  amount_cents integer not null,
+  currency text not null default 'BRL',
+  mercado_pago_payment_id text unique,
+  hosted_invoice_url text,
+  due_at timestamptz,
+  paid_at timestamptz,
+  created_at timestamptz not null default now(),
+  constraint invoices_amount_cents_non_negative check (amount_cents >= 0)
+);
+
+create table public.webhook_events (
+  id uuid primary key default gen_random_uuid(),
+  provider text not null,
+  external_event_id text not null,
+  event_type text,
+  payload jsonb not null,
+  processed_at timestamptz,
+  created_at timestamptz not null default now(),
+  constraint webhook_events_provider_external_unique unique (provider, external_event_id)
+);
+
+create table public.email_logs (
+  id uuid primary key default gen_random_uuid(),
+  store_id uuid references public.stores(id) on delete cascade,
+  customer_id uuid references public.customers(id) on delete set null,
+  template text not null,
+  recipient text not null,
+  subject text not null,
+  status public.email_status not null default 'pending',
+  provider_message_id text,
+  error_message text,
+  payload jsonb not null default '{}'::jsonb,
+  scheduled_at timestamptz not null default now(),
+  sent_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index subscriptions_store_id_idx on public.subscriptions(store_id);
+create index invoices_store_created_idx on public.invoices(store_id, created_at desc);
+create index email_logs_status_scheduled_idx on public.email_logs(status, scheduled_at);
+
 create trigger stores_set_updated_at
 before update on public.stores
 for each row execute function public.set_updated_at();
@@ -100,6 +178,11 @@ alter table public.stores enable row level security;
 alter table public.customers enable row level security;
 alter table public.cards enable row level security;
 alter table public.transactions enable row level security;
+alter table public.plans enable row level security;
+alter table public.subscriptions enable row level security;
+alter table public.invoices enable row level security;
+alter table public.webhook_events enable row level security;
+alter table public.email_logs enable row level security;
 
 create policy "Store owners can view stores"
 on public.stores for select to authenticated
@@ -188,6 +271,40 @@ with check (
   exists (
     select 1 from public.stores
     where stores.id = transactions.store_id
+      and stores.owner_id = (select auth.uid())
+  )
+);
+
+create policy "Authenticated users can view active plans"
+on public.plans for select to authenticated
+using (is_active = true);
+
+create policy "Store owners can view subscriptions"
+on public.subscriptions for select to authenticated
+using (
+  exists (
+    select 1 from public.stores
+    where stores.id = subscriptions.store_id
+      and stores.owner_id = (select auth.uid())
+  )
+);
+
+create policy "Store owners can view invoices"
+on public.invoices for select to authenticated
+using (
+  exists (
+    select 1 from public.stores
+    where stores.id = invoices.store_id
+      and stores.owner_id = (select auth.uid())
+  )
+);
+
+create policy "Store owners can view email logs"
+on public.email_logs for select to authenticated
+using (
+  exists (
+    select 1 from public.stores
+    where stores.id = email_logs.store_id
       and stores.owner_id = (select auth.uid())
   )
 );

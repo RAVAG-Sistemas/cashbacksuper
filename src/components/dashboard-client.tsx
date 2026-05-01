@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useMemo } from "react";
+import Link from "next/link";
 import {
   BadgeDollarSign,
   CreditCard,
@@ -32,6 +33,7 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { dashboardNavItems } from "@/lib/dashboard-nav";
 import type { Card as StoreCard, Customer, Store, Transaction } from "@/lib/demo-data";
 import { formatCurrency, formatPercent } from "@/lib/money";
 
@@ -153,45 +155,75 @@ export function DashboardClient({
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-        <section className="space-y-6">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Stat
-              label="Cashback gerado"
-              value={formatCurrency(totalGenerated)}
-              detail={`${formatPercent(store?.cashback_percentage ?? 5)} por compra`}
-            />
-            <Stat
-              label="Saldo em aberto"
-              value={formatCurrency(openBalance)}
-              detail={`${customers.length} clientes ativos`}
-            />
-            <Stat
-              label="Resgatado"
-              value={formatCurrency(redeemed)}
-              detail="Debitos registrados no caixa"
-            />
-          </div>
+      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <aside className="lg:sticky lg:top-20 lg:self-start">
+          <nav className="grid gap-2 rounded-[18px] border border-[#dddddd] bg-white p-2 shadow-sm">
+            {dashboardNavItems.map((item) => {
+              const Icon = item.icon;
+              const active = item.href === "/dashboard";
 
-          <Tabs defaultValue="customer" className="w-full">
-            <TabsList className="grid h-auto w-full grid-cols-2 rounded-full bg-white p-1 sm:grid-cols-4">
-              <TabsTrigger value="customer" className="rounded-full">
-                <UserRoundPlus className="mr-2 size-4" />
-                Cliente
-              </TabsTrigger>
-              <TabsTrigger value="purchase" className="rounded-full">
-                <ReceiptText className="mr-2 size-4" />
-                Compra
-              </TabsTrigger>
-              <TabsTrigger value="redeem" className="rounded-full">
-                <CreditCard className="mr-2 size-4" />
-                Resgate
-              </TabsTrigger>
-              <TabsTrigger value="store" className="rounded-full">
-                <Settings2 className="mr-2 size-4" />
-                Loja
-              </TabsTrigger>
-            </TabsList>
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={
+                    active
+                      ? "rounded-[14px] bg-[#fff0f3] p-3 text-[#ff385c]"
+                      : "rounded-[14px] p-3 text-[#6a6a6a] transition hover:bg-[#f7f7f7] hover:text-[#222222]"
+                  }
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className="size-5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold">{item.label}</p>
+                      <p className="truncate text-xs opacity-80">{item.description}</p>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </nav>
+        </aside>
+
+        <main className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+          <section className="space-y-6">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Stat
+                label="Cashback gerado"
+                value={formatCurrency(totalGenerated)}
+                detail={`${formatPercent(store?.cashback_percentage ?? 5)} por compra`}
+              />
+              <Stat
+                label="Saldo em aberto"
+                value={formatCurrency(openBalance)}
+                detail={`${customers.length} clientes ativos`}
+              />
+              <Stat
+                label="Resgatado"
+                value={formatCurrency(redeemed)}
+                detail="Debitos registrados no caixa"
+              />
+            </div>
+
+            <Tabs defaultValue="customer" className="w-full">
+              <TabsList className="grid h-auto w-full grid-cols-2 rounded-full bg-white p-1 sm:grid-cols-4">
+                <TabsTrigger value="customer" className="rounded-full">
+                  <UserRoundPlus className="mr-2 size-4" />
+                  Cliente
+                </TabsTrigger>
+                <TabsTrigger value="purchase" className="rounded-full">
+                  <ReceiptText className="mr-2 size-4" />
+                  Compra
+                </TabsTrigger>
+                <TabsTrigger value="redeem" className="rounded-full">
+                  <CreditCard className="mr-2 size-4" />
+                  Resgate
+                </TabsTrigger>
+                <TabsTrigger value="store" className="rounded-full">
+                  <Settings2 className="mr-2 size-4" />
+                  Loja
+                </TabsTrigger>
+              </TabsList>
 
             <TabsContent value="customer" className="mt-4">
               <Card className="rounded-[14px] border-[#dddddd] shadow-sm">
@@ -363,9 +395,9 @@ export function DashboardClient({
               </Card>
             </TabsContent>
           </Tabs>
-        </section>
+          </section>
 
-        <aside className="space-y-6">
+          <aside className="space-y-6">
           <Card className="rounded-[14px] border-[#dddddd] shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg">Clientes</CardTitle>
@@ -447,8 +479,9 @@ export function DashboardClient({
               </p>
             </CardContent>
           </Card>
-        </aside>
-      </main>
+          </aside>
+        </main>
+      </div>
     </div>
   );
 }
